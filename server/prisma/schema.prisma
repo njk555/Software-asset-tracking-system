@@ -1,0 +1,152 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  IT_STAFF
+  EMPLOYEE
+}
+
+model User {
+  id        String   @id @default(uuid())
+  fullName  String
+  email     String   @unique
+  password  String
+  role      UserRole @default(EMPLOYEE)
+  isActive  Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Department {
+  id          String     @id @default(uuid())
+  name        String     @unique
+  description String?
+
+  employees   Employee[]
+
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model Location {
+  id          String     @id @default(uuid())
+  name        String
+  building    String?
+  floor       String?
+  room        String?
+
+  employees Employee[]
+  assets    Asset[]
+
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model Employee {
+  id             String      @id @default(uuid())
+
+  employeeCode   String      @unique
+
+  firstName      String
+  lastName       String
+
+  email          String      @unique
+
+  phone          String?
+
+  designation    String?
+
+  departmentId   String
+  department     Department  @relation(fields: [departmentId], references: [id])
+
+  locationId     String
+  location       Location    @relation(fields: [locationId], references: [id])
+
+  isActive       Boolean     @default(true)
+
+  joiningDate    DateTime?
+
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+}
+enum AssetCondition {
+  NEW
+  GOOD
+  FAIR
+  DAMAGED
+  SCRAPPED
+}
+
+enum AssetStatus {
+  AVAILABLE
+  ASSIGNED
+  MAINTENANCE
+  DISPOSED
+}
+
+model Vendor {
+  id            String   @id @default(uuid())
+  name          String   @unique
+  contactPerson String?
+  email         String?
+  phone         String?
+  address       String?
+
+  assets        Asset[]
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model AssetCategory {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+
+  assets      Asset[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Asset {
+  id                String          @id @default(uuid())
+
+  assetCode         String          @unique
+  assetName         String
+
+  serialNumber      String?         @unique
+
+  model             String?
+  manufacturer      String?
+
+  purchaseDate      DateTime?
+
+  purchaseCost      Float?
+
+  warrantyExpiry    DateTime?
+
+  condition         AssetCondition  @default(NEW)
+
+  status            AssetStatus     @default(AVAILABLE)
+
+  vendorId          String
+  vendor            Vendor          @relation(fields: [vendorId], references: [id])
+
+  categoryId        String
+  category          AssetCategory   @relation(fields: [categoryId], references: [id])
+
+  locationId        String
+  location          Location        @relation(fields: [locationId], references: [id])
+
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+}
