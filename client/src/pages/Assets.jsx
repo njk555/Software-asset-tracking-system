@@ -13,8 +13,7 @@ import AddIcon from "@mui/icons-material/Add";
 import SearchIcon from "@mui/icons-material/Search";
 import AssetDialog from "../components/assets/AssetDialog";
 import { createAsset } from "../services/asset.service";
-import ExcelUpload
-from "../components/common/ExcelUpload";
+import ExcelUpload from "../components/common/Excelupload";
 import QrCodeScannerIcon
 from "@mui/icons-material/QrCodeScanner";
 
