@@ -8,76 +8,509 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+model User {
+  id              String   @id @default(uuid())
+  email           String   @unique
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  fullName        String
+  password        String
+  role            UserRole @default(EMPLOYEE)
+  assignedTickets Ticket[] @relation("AssignedTickets")
+
+  ticketComments TicketComment[]
+
+  ticketHistory TicketHistory[] @relation("TicketHistoryPerformedBy")
+}
+
+model Department {
+  id               String            @id @default(uuid())
+  name             String            @unique
+  description      String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  manager          String?
+  employees        Employee[]
+  tickets          Ticket[]
+  purchaseRequests PurchaseRequest[]
+  invoices         Invoice[]
+}
+
+model Location {
+  id        String     @id @default(uuid())
+  name      String
+  building  String?
+  floor     String?
+  room      String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  assets    Asset[]
+  employees Employee[]
+}
+
+model Employee {
+  id String @id @default(uuid())
+
+  employeeCode String @unique
+  firstName    String
+  lastName     String
+
+  email String  @unique
+  phone String?
+
+  designation String?
+
+  departmentId String
+  locationId   String
+
+  isActive    Boolean   @default(true)
+  joiningDate DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  department Department @relation(fields: [departmentId], references: [id])
+  location   Location   @relation(fields: [locationId], references: [id])
+
+  assets            Asset[]
+  assetAssignments  AssetAssignment[]
+  tickets           Ticket[]
+}
+
+model Vendor {
+  id                   String            @id @default(uuid())
+  name                 String            @unique
+  contactPerson        String?
+  email                String?
+  phone                String?
+  address              String?
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+  status               String            @default("ACTIVE")
+  assets               Asset[]
+  purchaseOrders       PurchaseOrder[]
+  preferredForRequests PurchaseRequest[] @relation("PreferredVendor")
+  invoices             Invoice[]
+  amcContracts         AmcContract[]
+}
+
+enum InvoiceTaxType {
+  GST_CGST_SGST
+  IGST
+  GST_EXEMPT
+  ZERO_RATED
+  REVERSE_CHARGE
+  TDS
+  TCS
+  NON_GST
+}
+
+enum InvoicePaymentTerm {
+  ADVANCE_100
+  ADVANCE_50_COMPLETION_50
+  CREDIT_15_DAYS
+  CREDIT_30_DAYS
+  DUE_ON_RECEIPT
+}
+
+enum InvoiceStatus {
+  PENDING
+  PAID
+  OVERDUE
+}
+
+model Invoice {
+  id             String             @id @default(uuid())
+  vendorId       String
+  departmentId   String?
+  invoiceNumber  String
+  invoiceDate    DateTime
+  paymentTerm    InvoicePaymentTerm
+  taxType        InvoiceTaxType
+  subtotalAmount Float
+  taxRate        Float
+  taxAmount      Float
+  totalAmount    Float
+  dueDate        DateTime
+  status         InvoiceStatus      @default(PENDING)
+  fileName       String?
+  fileUrl        String?
+  notes          String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  vendor         Vendor             @relation(fields: [vendorId], references: [id])
+  department     Department?        @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+
+  @@unique([vendorId, invoiceNumber])
+  @@index([dueDate, status])
+}
+
+enum PurchaseRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model PurchaseRequestWorkflow {
+  id            String            @id @default(uuid())
+  name          String            @unique
+  approvalSteps Json
+  isActive      Boolean           @default(true)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  requests      PurchaseRequest[]
+}
+
+model PurchaseRequest {
+  id                  String                     @id @default(uuid())
+  requestNumber       String                     @unique
+  departmentId        String
+  requestedByName     String
+  justification       String
+  estimatedCost       Float
+  preferredVendorId   String?
+  workflowId          String?
+  approvalSteps       Json
+  currentApprovalStep Int                        @default(0)
+  status              PurchaseRequestStatus      @default(PENDING)
+  rejectionReason     String?
+  createdAt           DateTime                   @default(now())
+  updatedAt           DateTime                   @updatedAt
+  department          Department                 @relation(fields: [departmentId], references: [id])
+  preferredVendor     Vendor?                    @relation("PreferredVendor", fields: [preferredVendorId], references: [id], onDelete: SetNull)
+  workflow            PurchaseRequestWorkflow?   @relation(fields: [workflowId], references: [id], onDelete: SetNull)
+  items               PurchaseRequestItem[]
+  quotations          PurchaseRequestQuotation[]
+  approvals           PurchaseRequestApproval[]
+
+  @@index([departmentId, status])
+}
+
+model PurchaseRequestItem {
+  id                String          @id @default(uuid())
+  purchaseRequestId String
+  itemDescription   String
+  quantity          Int
+  purchaseRequest   PurchaseRequest @relation(fields: [purchaseRequestId], references: [id], onDelete: Cascade)
+}
+
+model PurchaseRequestQuotation {
+  id                String          @id @default(uuid())
+  purchaseRequestId String
+  fileName          String
+  fileUrl           String
+  uploadedAt        DateTime        @default(now())
+  purchaseRequest   PurchaseRequest @relation(fields: [purchaseRequestId], references: [id], onDelete: Cascade)
+}
+
+model PurchaseRequestApproval {
+  id                String          @id @default(uuid())
+  purchaseRequestId String
+  stepNumber        Int
+  approverRole      String
+  action            String
+  actorName         String
+  comment           String?
+  createdAt         DateTime        @default(now())
+  purchaseRequest   PurchaseRequest @relation(fields: [purchaseRequestId], references: [id], onDelete: Cascade)
+}
+
+model AssetCategory {
+  id                 String              @id @default(uuid())
+  name               String              @unique
+  description        String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  status             String              @default("ACTIVE")
+  assets             Asset[]
+  purchaseOrderItems PurchaseOrderItem[]
+}
+
+model Asset {
+  id String @id @default(uuid())
+
+  assetCode    String  @unique
+  assetName    String
+  serialNumber String? @unique
+  model        String?
+  manufacturer String?
+
+  purchaseDate   DateTime?
+  purchaseCost   Float?
+  warrantyExpiry DateTime?
+
+  condition AssetCondition @default(NEW)
+  status    AssetStatus    @default(AVAILABLE)
+
+  vendorId   String
+  categoryId String
+  locationId String
+  employeeId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  vendor            Vendor                   @relation(fields: [vendorId], references: [id])
+  category          AssetCategory            @relation(fields: [categoryId], references: [id])
+  location          Location                 @relation(fields: [locationId], references: [id])
+  employee          Employee?                @relation(fields: [employeeId], references: [id])
+  assignments       AssetAssignment[]
+  auditLogs         AuditLog[]
+  amcContracts      AmcContract[]
+  
+}
+
+enum AmcStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+enum AmcNotificationType {
+  EXPIRY_REMINDER
+  SERVICE_REMINDER_15_DAYS
+  SERVICE_REMINDER_7_DAYS
+}
+
+model AmcContract {
+  id                    String            @id @default(uuid())
+  contractNumber        String            @unique
+  assetId               String
+  vendorId              String
+  startDate             DateTime
+  expiryDate            DateTime
+  serviceIntervalMonths Int               @default(3)
+  nextServiceDate       DateTime?
+  lastServiceDate       DateTime?
+  status                AmcStatus         @default(ACTIVE)
+  notes                 String?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+  asset                 Asset             @relation(fields: [assetId], references: [id])
+  vendor                Vendor            @relation(fields: [vendorId], references: [id])
+  notifications         AmcNotification[]
+
+  @@index([expiryDate, status])
+  @@index([nextServiceDate, status])
+}
+
+model AmcNotification {
+  id           String              @id @default(uuid())
+  contractId   String
+  type         AmcNotificationType
+  scheduledFor DateTime
+  recipient    String
+  channels     Json
+  message      String
+  isRead       Boolean             @default(false)
+  createdAt    DateTime            @default(now())
+  contract     AmcContract         @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@unique([contractId, type, scheduledFor])
+  @@index([isRead, createdAt])
+}
+
+model AssetAssignment {
+  id             String    @id @default(uuid())
+  assetId        String
+  employeeId     String
+  assignedAt     DateTime  @default(now())
+  returnedAt     DateTime?
+  remarks        String?
+  assignedByName String
+  returnedByName String?
+  asset          Asset     @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  employee       Employee  @relation(fields: [employeeId], references: [id])
+
+  @@index([assetId, assignedAt])
+  @@index([employeeId, returnedAt])
+}
+
+model AuditLog {
+  id          String           @id @default(uuid())
+  assetId     String?
+  entityType  String
+  entityId    String
+  action      AssetAuditAction
+  actorName   String
+  description String
+  beforeData  Json?
+  afterData   Json?
+  createdAt   DateTime         @default(now())
+  asset       Asset?           @relation(fields: [assetId], references: [id], onDelete: SetNull)
+
+  @@index([assetId, createdAt])
+  @@index([entityType, entityId, createdAt])
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  APPROVED
+  ORDERED
+  RECEIVED
+  CLOSED
+  CANCELLED
+}
+
+model PurchaseOrder {
+  id String @id @default(uuid())
+
+  poNumber String @unique
+
+  vendorId String
+
+  orderDate DateTime @default(now())
+
+  expectedDelivery DateTime?
+
+  totalAmount Float @default(0)
+
+  status PurchaseOrderStatus @default(DRAFT)
+
+  remarks String?
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  vendor Vendor @relation(fields: [vendorId], references: [id])
+
+  items PurchaseOrderItem[]
+}
+
+model PurchaseOrderItem {
+  id String @id @default(uuid())
+
+  purchaseOrderId String
+
+  assetName String
+
+  categoryId String
+
+  quantity Int
+
+  unitPrice Float
+
+  totalPrice Float
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+
+  category AssetCategory @relation(fields: [categoryId], references: [id])
+}
+
+model Ticket {
+  id String @id @default(uuid())
+
+  ticketNumber String @unique
+
+  title String
+
+  description String
+
+  priority TicketPriority @default(MEDIUM)
+
+  status TicketStatus @default(OPEN)
+
+  category String
+
+  employeeId String?
+
+  employee Employee? @relation(fields: [employeeId], references: [id])
+
+  departmentId String
+
+  department Department @relation(fields: [departmentId], references: [id])
+
+  assignedToId String?
+
+  assignedTo User? @relation("AssignedTickets", fields: [assignedToId], references: [id])
+
+  comments TicketComment[]
+
+  attachments TicketAttachment[]
+
+  history TicketHistory[]
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+}
+
+model TicketComment {
+  id String @id @default(uuid())
+
+  comment String
+
+  ticketId String
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  userId String?
+
+  user User? @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+model TicketAttachment {
+  id String @id @default(uuid())
+
+  fileName String
+
+  fileUrl String
+
+  ticketId String
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  uploadedAt DateTime @default(now())
+}
+
+model TicketHistory {
+  id String @id @default(uuid())
+
+  action String
+
+  oldValue String?
+
+  newValue String?
+
+  ticketId String
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  performedById String?
+
+  performedBy User? @relation("TicketHistoryPerformedBy", fields: [performedById], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  ON_HOLD
+  RESOLVED
+  CLOSED
+  REOPENED
+}
+
 enum UserRole {
   ADMIN
   IT_STAFF
   EMPLOYEE
 }
 
-model User {
-  id        String   @id @default(uuid())
-  fullName  String
-  email     String   @unique
-  password  String
-  role      UserRole @default(EMPLOYEE)
-  isActive  Boolean  @default(true)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model Department {
-  id          String     @id @default(uuid())
-  name        String     @unique
-  description String?
-
-  employees   Employee[]
-
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-}
-
-model Location {
-  id          String     @id @default(uuid())
-  name        String
-  building    String?
-  floor       String?
-  room        String?
-
-  employees Employee[]
-  assets    Asset[]
-
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-}
-
-model Employee {
-  id             String      @id @default(uuid())
-
-  employeeCode   String      @unique
-
-  firstName      String
-  lastName       String
-
-  email          String      @unique
-
-  phone          String?
-
-  designation    String?
-
-  departmentId   String
-  department     Department  @relation(fields: [departmentId], references: [id])
-
-  locationId     String
-  location       Location    @relation(fields: [locationId], references: [id])
-
-  isActive       Boolean     @default(true)
-
-  joiningDate    DateTime?
-
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
-}
 enum AssetCondition {
   NEW
   GOOD
@@ -93,61 +526,10 @@ enum AssetStatus {
   DISPOSED
 }
 
-model Vendor {
-  id            String   @id @default(uuid())
-  name          String   @unique
-  contactPerson String?
-  email         String?
-  phone         String?
-  address       String?
-
-  assets        Asset[]
-
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-}
-
-model AssetCategory {
-  id          String   @id @default(uuid())
-  name        String   @unique
-  description String?
-
-  assets      Asset[]
-
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-
-model Asset {
-  id                String          @id @default(uuid())
-
-  assetCode         String          @unique
-  assetName         String
-
-  serialNumber      String?         @unique
-
-  model             String?
-  manufacturer      String?
-
-  purchaseDate      DateTime?
-
-  purchaseCost      Float?
-
-  warrantyExpiry    DateTime?
-
-  condition         AssetCondition  @default(NEW)
-
-  status            AssetStatus     @default(AVAILABLE)
-
-  vendorId          String
-  vendor            Vendor          @relation(fields: [vendorId], references: [id])
-
-  categoryId        String
-  category          AssetCategory   @relation(fields: [categoryId], references: [id])
-
-  locationId        String
-  location          Location        @relation(fields: [locationId], references: [id])
-
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
+enum AssetAuditAction {
+  CREATED
+  UPDATED
+  ASSIGNED
+  REASSIGNED
+  UNASSIGNED
 }
