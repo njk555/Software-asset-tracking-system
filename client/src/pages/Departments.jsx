@@ -32,12 +32,7 @@ import {
   updateDepartment,
   deleteDepartment,
 } from "../services/department.service";
-import { importAssets } from "../services/AssetImport.service";
-import { importCategories } from "../services/CategoryImport.service";
 
-import { importEmployees } from "../services/EmployeeImport.service";
-import { importLocations } from "../services/LocationImport.service";
-import { importVendors } from "../services/VendorImport.service";
 
 import { importDepartments } from "../services/DepartmentImport.service";
 
